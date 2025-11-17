@@ -10,6 +10,8 @@ let stepsPerFrame = 1;
 
 // per-cell params / masks
 let feedMap, killMap, redMask;
+// color balance: 0 = default (cool), 1 = red. This value will diffuse along with B.
+let colorBalance, nextColorBalance;
 
 // default Gray-Scott params (good starting point)
 let dA = 1.0;
@@ -50,6 +52,8 @@ function initGrids() {
   gridB = make2D(cols, rows, 0.0);
   nextA = make2D(cols, rows, 0.0);
   nextB = make2D(cols, rows, 0.0);
+  colorBalance = make2D(cols, rows, 0.0);
+  nextColorBalance = make2D(cols, rows, 0.0);
 }
 
 function seedFromLogo() {
@@ -83,18 +87,21 @@ function seedFromLogo() {
           gridA[x][y] = 1.0 - gridB[x][y] * 0.3;
           feedMap[x][y] = max(0.005, feed * 0.8); // slightly lower feed
           killMap[x][y] = max(0.02, kill * 0.9); // slightly lower kill -> more persistence
+          colorBalance[x][y] = 1.0; // start red
         } else {
           // regular logo area
           gridB[x][y] = random(0.3, 0.7);
           gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
           feedMap[x][y] = feed;
           killMap[x][y] = kill;
+          colorBalance[x][y] = 0.0;
         }
       } else {
         gridB[x][y] = 0.0;
         gridA[x][y] = 1.0;
         feedMap[x][y] = feed;
         killMap[x][y] = kill;
+        colorBalance[x][y] = 0.0;
       }
     }
   }
@@ -139,6 +146,37 @@ function step() {
     let ry = floor(random(1, rows-1));
     gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
   }
+
+  // diffuse colorBalance along with B using a weighted neighborhood average
+  for (let x = 1; x < cols - 1; x++) {
+    for (let y = 1; y < rows - 1; y++) {
+      // weights matching laplacian kernel
+      let wSelf = 1.0;
+      let wOrtho = 0.2;
+      let wDiag = 0.05;
+      // use nextB values (post-step) to weight contribution
+      let denom = 0.0;
+      let numer = 0.0;
+      // self
+      denom += wSelf * nextB[x][y];
+      numer += wSelf * nextB[x][y] * colorBalance[x][y];
+      // ortho neighbors
+      let nx, ny, cb, bv;
+      nx = x-1; ny = y; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wOrtho * bv; numer += wOrtho * bv * cb;
+      nx = x+1; ny = y; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wOrtho * bv; numer += wOrtho * bv * cb;
+      nx = x; ny = y-1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wOrtho * bv; numer += wOrtho * bv * cb;
+      nx = x; ny = y+1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wOrtho * bv; numer += wOrtho * bv * cb;
+      // diag neighbors
+      nx = x-1; ny = y-1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wDiag * bv; numer += wDiag * bv * cb;
+      nx = x+1; ny = y-1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wDiag * bv; numer += wDiag * bv * cb;
+      nx = x-1; ny = y+1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wDiag * bv; numer += wDiag * bv * cb;
+      nx = x+1; ny = y+1; bv = nextB[nx][ny]; cb = colorBalance[nx][ny]; denom += wDiag * bv; numer += wDiag * bv * cb;
+      if (denom > 0.0001) nextColorBalance[x][y] = constrain(numer / denom, 0, 1);
+      else nextColorBalance[x][y] = colorBalance[x][y];
+    }
+  }
+  // swap color balances
+  let tc = colorBalance; colorBalance = nextColorBalance; nextColorBalance = tc;
 }
 
 function laplacian(arr, x, y) {
@@ -165,20 +203,22 @@ function render() {
       let b = gridB[x][y];
       // color mapping: use B concentration to modulate a palette
       let v = constrain((b - a), -1, 1);
-      // color differently for red-seeded areas
-      if (redMask && redMask[x] && redMask[x][y]) {
-        // red palette mapping
-        let cr = map(v, -1, 1, 150, 255);
-        let cg = map(v, -1, 1, 20, 100);
-        let cb = map(v, -1, 1, 20, 80);
-        fill(cr, cg, cb);
-      } else {
-        // default cool palette mapping
-        let cr = map(v, -1, 1, 20, 200);
-        let cg = map(v, -1, 1, 30, 140);
-        let cb = map(v, -1, 1, 80, 255);
-        fill(cr, cg, cb);
-      }
+      // color mix based on colorBalance (diffusing red fraction)
+      let mix = 0;
+      if (colorBalance && colorBalance[x]) mix = colorBalance[x][y];
+      else if (redMask && redMask[x]) mix = redMask[x][y] ? 1 : 0;
+      // red palette
+      let crR = map(v, -1, 1, 150, 255);
+      let cgR = map(v, -1, 1, 20, 100);
+      let cbR = map(v, -1, 1, 20, 80);
+      // cool palette
+      let crC = map(v, -1, 1, 20, 200);
+      let cgC = map(v, -1, 1, 30, 140);
+      let cbC = map(v, -1, 1, 80, 255);
+      let cr = lerp(crC, crR, mix);
+      let cg = lerp(cgC, cgR, mix);
+      let cb = lerp(cbC, cbR, mix);
+      fill(cr, cg, cb);
       rect(x * w, y * w, w, w);
     }
   }
