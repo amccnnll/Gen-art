@@ -37,14 +37,19 @@ function initFromImage() {
   img.loadPixels();
   // compute average brightness to choose an adaptive threshold
   let sumBright = 0;
+  let sumAlpha = 0;
   for (let i = 0; i < img.pixels.length; i += 4) {
     let r = img.pixels[i];
     let g = img.pixels[i + 1];
     let b = img.pixels[i + 2];
+    let a = img.pixels[i + 3];
     sumBright += (r + g + b) / 3;
+    sumAlpha += a;
   }
   let avgBright = sumBright / (cols * rows);
+  let avgAlpha = sumAlpha / (cols * rows);
   let threshold = avgBright * 0.95; // slightly darker than average
+  let alphaCutoff = max(16, floor(avgAlpha * 0.25)); // treat near-transparent pixels as background
 
   let aliveCount = 0;
   for (let x = 0; x < cols; x++) {
@@ -53,16 +58,23 @@ function initFromImage() {
       let r = img.pixels[i];
       let g = img.pixels[i + 1];
       let b = img.pixels[i + 2];
+      let a = img.pixels[i + 3];
       let bright = (r + g + b) / 3;
-      // adaptive threshold: darker-than-average -> alive
-      let alive = bright < threshold ? 1 : 0;
+      // if pixel is transparent (alpha below cutoff) treat it as background
+      let alive = 0;
+      if (a >= alphaCutoff) {
+        // adaptive threshold: darker-than-average -> alive
+        alive = bright < threshold ? 1 : 0;
+      } else {
+        alive = 0;
+      }
       grid[x][y] = alive;
       initialGrid[x][y] = alive;
       if (alive) aliveCount++;
     }
   }
 
-  // fallback: if no alive cells, invert threshold or add random seeds
+  // fallback: if no alive cells, invert threshold or add random seeds (respecting alpha)
   if (aliveCount === 0) {
     for (let x = 0; x < cols; x++) {
       for (let y = 0; y < rows; y++) {
@@ -70,21 +82,30 @@ function initFromImage() {
         let r = img.pixels[i];
         let g = img.pixels[i + 1];
         let b = img.pixels[i + 2];
+        let a = img.pixels[i + 3];
         let bright = (r + g + b) / 3;
-        let alive = bright > threshold ? 1 : 0;
-        grid[x][y] = alive;
-        initialGrid[x][y] = alive;
-        if (alive) aliveCount++;
+        if (a >= alphaCutoff) {
+          let alive = bright > threshold ? 1 : 0;
+          grid[x][y] = alive;
+          initialGrid[x][y] = alive;
+          if (alive) aliveCount++;
+        } else {
+          grid[x][y] = 0;
+          initialGrid[x][y] = 0;
+        }
       }
     }
   }
   if (aliveCount === 0) {
-    // final fallback: sprinkle a few random seeds
+    // final fallback: sprinkle a few random seeds only where alpha is sufficient
     for (let i = 0; i < floor(cols * rows * 0.01); i++) {
       let rx = floor(random(cols));
       let ry = floor(random(rows));
-      grid[rx][ry] = 1;
-      initialGrid[rx][ry] = 1;
+      let ai = (ry * img.width + rx) * 4 + 3;
+      if (img.pixels[ai] >= alphaCutoff) {
+        grid[rx][ry] = 1;
+        initialGrid[rx][ry] = 1;
+      }
     }
   }
 
