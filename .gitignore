@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Editor directories and files
+.vscode/
+.idea/
+
+# Outputs and temporary exports
+/outputs/
+
+# Project secrets
+.env
+
+# Misc
+Thumbs.db

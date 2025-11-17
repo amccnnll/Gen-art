@@ -1,0 +1,10 @@
+{
+  "name": "gen-art",
+  "version": "0.1.0",
+  "description": "Generative art experiments with p5.js",
+  "scripts": {
+    "start": "npx http-server web -p 8080"
+  },
+  "author": "",
+  "license": "MIT"
+}
