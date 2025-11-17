@@ -8,6 +8,9 @@ let scaleFactor = 1; // how many screen pixels per grid cell
 let running = true;
 let stepsPerFrame = 1;
 
+// per-cell params / masks
+let feedMap, killMap, redMask;
+
 // default Gray-Scott params (good starting point)
 let dA = 1.0;
 let dB = 0.5;
@@ -58,18 +61,40 @@ function seedFromLogo() {
   for (let i = 3; i < img.pixels.length; i += 4) alphaSum += img.pixels[i];
   let avgAlpha = alphaSum / (cols * rows);
   let alphaCut = max(8, floor(avgAlpha * 0.5));
+  // initialize per-cell param maps and mask
+  feedMap = make2D(cols, rows, feed);
+  killMap = make2D(cols, rows, kill);
+  redMask = make2D(cols, rows, 0);
 
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
-      let i = (y * img.width + x) * 4 + 3;
-      let a = img.pixels[i];
+      let i = (y * img.width + x) * 4;
+      let r = img.pixels[i];
+      let g = img.pixels[i + 1];
+      let b = img.pixels[i + 2];
+      let a = img.pixels[i + 3];
       if (a >= alphaCut) {
-        // give some B where logo is opaque; randomize intensity a bit
-        gridB[x][y] = random(0.6, 1.0);
-        gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
+        // detect red-ish pixels (preferential treatment)
+        let isRed = (r > 130 && r > g * 1.2 && r > b * 1.2) || (r > 160 && g < 100);
+        if (isRed) {
+          redMask[x][y] = 1;
+          // stronger B seed and slightly different local params for more activity
+          gridB[x][y] = random(0.7, 1.0);
+          gridA[x][y] = 1.0 - gridB[x][y] * 0.3;
+          feedMap[x][y] = max(0.005, feed * 0.8); // slightly lower feed
+          killMap[x][y] = max(0.02, kill * 0.9); // slightly lower kill -> more persistence
+        } else {
+          // regular logo area
+          gridB[x][y] = random(0.3, 0.7);
+          gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
+          feedMap[x][y] = feed;
+          killMap[x][y] = kill;
+        }
       } else {
         gridB[x][y] = 0.0;
         gridA[x][y] = 1.0;
+        feedMap[x][y] = feed;
+        killMap[x][y] = kill;
       }
     }
   }
@@ -92,8 +117,11 @@ function step() {
       let lapA = laplacian(gridA, x, y);
       let lapB = laplacian(gridB, x, y);
       let reaction = a * b * b;
-      let newA = a + (dA * lapA - reaction + feed * (1 - a)) * (dt * 0.5);
-      let newB = b + (dB * lapB + reaction - (kill + feed) * b) * (dt * 0.5);
+      // use local feed/kill if present
+      let f = feedMap && feedMap[x] ? feedMap[x][y] : feed;
+      let k = killMap && killMap[x] ? killMap[x][y] : kill;
+      let newA = a + (dA * lapA - reaction + f * (1 - a)) * (dt * 0.5);
+      let newB = b + (dB * lapB + reaction - (k + f) * b) * (dt * 0.5);
       nextA[x][y] = constrain(newA, 0, 1);
       nextB[x][y] = constrain(newB, 0, 1);
     }
@@ -137,11 +165,20 @@ function render() {
       let b = gridB[x][y];
       // color mapping: use B concentration to modulate a palette
       let v = constrain((b - a), -1, 1);
-      // palette mapping: map v to color
-      let cr = map(v, -1, 1, 20, 255);
-      let cg = map(v, -1, 1, 10, 100);
-      let cb = map(v, -1, 1, 40, 200);
-      fill(cr, cg, cb);
+      // color differently for red-seeded areas
+      if (redMask && redMask[x] && redMask[x][y]) {
+        // red palette mapping
+        let cr = map(v, -1, 1, 150, 255);
+        let cg = map(v, -1, 1, 20, 100);
+        let cb = map(v, -1, 1, 20, 80);
+        fill(cr, cg, cb);
+      } else {
+        // default cool palette mapping
+        let cr = map(v, -1, 1, 20, 200);
+        let cg = map(v, -1, 1, 30, 140);
+        let cb = map(v, -1, 1, 80, 255);
+        fill(cr, cg, cb);
+      }
       rect(x * w, y * w, w, w);
     }
   }
@@ -160,7 +197,12 @@ function drawOverlay() {
       if (gridB[x][y] > 0.001) { hasB = 1; break; }
     }
   }
-  text(`RD (${presets[currentPreset].name}) — ${cols}x${rows} feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} speed:${stepsPerFrame} B:${hasB ? 'yes' : 'no'}`, 8, 8);
+  // count red cells
+  let redCount = 0;
+  if (redMask) {
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) if (redMask[x][y]) redCount++;
+  }
+  text(`RD (${presets[currentPreset].name}) — ${cols}x${rows} feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} speed:${stepsPerFrame} B:${hasB ? 'yes' : 'no'} red:${redCount}`, 8, 8);
   pop();
 }
 
