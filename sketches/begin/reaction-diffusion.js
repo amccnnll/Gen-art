@@ -62,20 +62,17 @@ function setup() {
   seedFromLogo();
   // create UI sliders (top-left)
   s_dA = createSlider(0.5, 1.5, dA, 0.01);
-  s_dA.position(10, 10);
   s_dA.style('width', '140px');
   s_dB = createSlider(0.1, 1.5, dB, 0.01);
-  s_dB.position(10, 36);
   s_dB.style('width', '140px');
   s_feed = createSlider(0.0, 0.06, feed, 0.001);
-  s_feed.position(10, 62);
   s_feed.style('width', '140px');
   s_kill = createSlider(0.0, 0.12, kill, 0.001);
-  s_kill.position(10, 88);
   s_kill.style('width', '140px');
   s_dt = createSlider(0.2, 2.0, dt, 0.05);
-  s_dt.position(10, 114);
   s_dt.style('width', '140px');
+  // position sliders (top-right) and ensure they update on resize
+  updateSliderPositions();
   // record initial slider vals
   lastSliderVals = {dA: dA, dB: dB, feed: feed, kill: kill, dt: dt};
   frameRate(30);
@@ -421,4 +418,19 @@ function windowResized() {
   offsetY = floor((height - rows * scaleFactor) / 2);
   initGrids();
   seedFromLogo();
+  // reposition sliders if present
+  updateSliderPositions();
+}
+
+function updateSliderPositions() {
+  // place sliders in the top-right corner with a small margin
+  if (!s_dA) return;
+  let margin = 10;
+  let w = 140;
+  let x = max(margin, width - w - 16); // 16px extra for visibility
+  s_dA.position(x, 10 + margin);
+  s_dB.position(x, 10 + margin + 26);
+  s_feed.position(x, 10 + margin + 52);
+  s_kill.position(x, 10 + margin + 78);
+  s_dt.position(x, 10 + margin + 104);
 }
