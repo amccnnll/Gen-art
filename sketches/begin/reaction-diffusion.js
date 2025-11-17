@@ -17,14 +17,14 @@ let feedMap, killMap, redMask;
 let colorBalance, nextColorBalance;
 
 // default Gray-Scott params (good starting point)
-let dA = 1.0;
-let dB = 0.5;
-let feed = 0.036;
-let kill = 0.064;
+let dA = 0.95;
+let dB = 0.8;
+let feed = 0.025;
+let kill = 0.049;
 let dt = 1.0;
 // presets to try for different behavior (1..5)
 let presets = [
-  {name: 'calm', dA:1.0, dB:0.5, feed:0.036, kill:0.064},
+  {name: 'calm', dA:0.95, dB:0.8, feed:0.025, kill:0.049},
   {name: 'spiral', dA:1.0, dB:0.5, feed:0.018, kill:0.052},
   {name: 'worms', dA:1.0, dB:0.5, feed:0.025, kill:0.060},
   {name: 'chaotic', dA:1.0, dB:0.6, feed:0.030, kill:0.055},
@@ -169,18 +169,33 @@ function step() {
       nextB[x][y] = constrain(newB, 0, 1);
     }
   }
+  // stabilize edges: copy current edge cells into next arrays to avoid flicker
+  for (let x = 0; x < cols; x++) {
+    nextA[x][0] = gridA[x][0];
+    nextB[x][0] = gridB[x][0];
+    nextA[x][rows-1] = gridA[x][rows-1];
+    nextB[x][rows-1] = gridB[x][rows-1];
+  }
+  for (let y = 0; y < rows; y++) {
+    nextA[0][y] = gridA[0][y];
+    nextB[0][y] = gridB[0][y];
+    nextA[cols-1][y] = gridA[cols-1][y];
+    nextB[cols-1][y] = gridB[cols-1][y];
+  }
+
   // swap grids
   let tA = gridA; gridA = nextA; nextA = tA;
   let tB = gridB; gridB = nextB; nextB = tB;
 
   // small random perturbations to keep the system lively
   // sprinkle a few random B concentrations each frame (only a tiny fraction)
-  let sprinkle = max(1, floor(cols * rows * 0.0006));
+  // increased sprinkle frequency and magnitude to add more perturbation
+  let sprinkle = max(1, floor(cols * rows * 0.0012));
   for (let k = 0; k < sprinkle; k++) {
-    if (random() < 0.5) continue;
+    if (random() < 0.4) continue;
     let rx = floor(random(1, cols-1));
     let ry = floor(random(1, rows-1));
-    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
+    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.1, 0.6));
   }
 
   // diffuse colorBalance along with B using a weighted neighborhood average
