@@ -15,6 +15,11 @@ let offsetX = 0, offsetY = 0;
 let feedMap, killMap, redMask;
 // color balance: 0 = default (cool), 1 = red. This value will diffuse along with B.
 let colorBalance, nextColorBalance;
+// masks and UI state
+let logoMask; // true where logo alpha >= cutoff
+// sliders
+let s_dA, s_dB, s_feed, s_kill, s_dt;
+let lastSliderVals = {};
 
 // default Gray-Scott params (good starting point)
 let dA = 0.95;
@@ -55,6 +60,24 @@ function setup() {
   applyPreset(0);
   initGrids();
   seedFromLogo();
+  // create UI sliders (top-left)
+  s_dA = createSlider(0.5, 1.5, dA, 0.01);
+  s_dA.position(10, 10);
+  s_dA.style('width', '140px');
+  s_dB = createSlider(0.1, 1.5, dB, 0.01);
+  s_dB.position(10, 36);
+  s_dB.style('width', '140px');
+  s_feed = createSlider(0.0, 0.06, feed, 0.001);
+  s_feed.position(10, 62);
+  s_feed.style('width', '140px');
+  s_kill = createSlider(0.0, 0.12, kill, 0.001);
+  s_kill.position(10, 88);
+  s_kill.style('width', '140px');
+  s_dt = createSlider(0.2, 2.0, dt, 0.05);
+  s_dt.position(10, 114);
+  s_dt.style('width', '140px');
+  // record initial slider vals
+  lastSliderVals = {dA: dA, dB: dB, feed: feed, kill: kill, dt: dt};
   frameRate(30);
 }
 
@@ -90,6 +113,7 @@ function seedFromLogo() {
   feedMap = make2D(cols, rows, feed);
   killMap = make2D(cols, rows, kill);
   redMask = make2D(cols, rows, 0);
+  logoMask = make2D(cols, rows, false);
 
   // compute the x offset where the logo begins (right-aligned), leaving extra transparent padding on the right
   let logoOffsetX = cols - (logoCols + extraRightCols);
@@ -112,6 +136,7 @@ function seedFromLogo() {
         }
       }
       if (a >= alphaCut) {
+        logoMask[x][y] = true;
         // detect red-ish pixels (preferential treatment)
         let isRed = (r > 130 && r > g * 1.2 && r > b * 1.2) || (r > 160 && g < 100);
         if (isRed) {
@@ -131,6 +156,7 @@ function seedFromLogo() {
           colorBalance[x][y] = 0.0;
         }
       } else {
+        logoMask[x][y] = false;
         // transparent/background area (including left extension): give a small seed so it can react/invade
         gridB[x][y] = random(0.02, 0.12);
         gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
@@ -143,6 +169,26 @@ function seedFromLogo() {
   }
 }
 
+function updateParamMapsFromSliders() {
+  // apply current global feed/kill to feedMap/killMap while preserving redMask logic
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      if (logoMask[x][y]) {
+        if (redMask[x][y]) {
+          feedMap[x][y] = max(0.005, feed * 0.8);
+          killMap[x][y] = max(0.02, kill * 0.9);
+        } else {
+          feedMap[x][y] = feed;
+          killMap[x][y] = kill;
+        }
+      } else {
+        feedMap[x][y] = feed * 1.05;
+        killMap[x][y] = max(0.01, kill * 0.95);
+      }
+    }
+  }
+}
+
 function draw() {
   background(250);
   if (running) {
@@ -150,6 +196,22 @@ function draw() {
   }
   render();
   drawOverlay();
+
+  // read sliders and update params if changed
+  if (s_dA) {
+    let ndA = s_dA.value();
+    let ndB = s_dB.value();
+    let nfeed = s_feed.value();
+    let nkill = s_kill.value();
+    let ndt = s_dt.value();
+    let changed = false;
+    if (abs(ndA - lastSliderVals.dA) > 0.0001) { dA = ndA; changed = true; lastSliderVals.dA = ndA; }
+    if (abs(ndB - lastSliderVals.dB) > 0.0001) { dB = ndB; changed = true; lastSliderVals.dB = ndB; }
+    if (abs(nfeed - lastSliderVals.feed) > 0.0001) { feed = nfeed; changed = true; lastSliderVals.feed = nfeed; }
+    if (abs(nkill - lastSliderVals.kill) > 0.0001) { kill = nkill; changed = true; lastSliderVals.kill = nkill; }
+    if (abs(ndt - lastSliderVals.dt) > 0.0001) { dt = ndt; changed = true; lastSliderVals.dt = ndt; }
+    if (changed) updateParamMapsFromSliders();
+  }
 }
 
 function step() {
@@ -187,16 +249,8 @@ function step() {
   let tA = gridA; gridA = nextA; nextA = tA;
   let tB = gridB; gridB = nextB; nextB = tB;
 
-  // small random perturbations to keep the system lively
-  // sprinkle a few random B concentrations each frame (only a tiny fraction)
-  // small random perturbations to keep the system lively (original values)
-  let sprinkle = max(1, floor(cols * rows * 0.0006));
-  for (let k = 0; k < sprinkle; k++) {
-    if (random() < 0.5) continue;
-    let rx = floor(random(1, cols-1));
-    let ry = floor(random(1, rows-1));
-    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
-  }
+  // perturbations disabled (user requested zero perturbation)
+  // no sprinkling performed
 
   // diffuse colorBalance along with B using a weighted neighborhood average
   for (let x = 1; x < cols - 1; x++) {
