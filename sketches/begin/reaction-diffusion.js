@@ -12,6 +12,8 @@ let stepsPerFrame = 1;
 let feedMap, killMap, redMask;
 // color balance: 0 = default (cool), 1 = red. This value will diffuse along with B.
 let colorBalance, nextColorBalance;
+// per-cell sampled color from the logo (p5.Color)
+let cellColor;
 
 // default Gray-Scott params (good starting point)
 let dA = 1.0;
@@ -70,6 +72,12 @@ function seedFromLogo() {
   killMap = make2D(cols, rows, kill);
   redMask = make2D(cols, rows, 0);
 
+  // prepare per-cell sampled colors
+  cellColor = new Array(cols);
+  for (let i = 0; i < cols; i++) {
+    cellColor[i] = new Array(rows);
+  }
+
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
       let i = (y * img.width + x) * 4;
@@ -95,6 +103,8 @@ function seedFromLogo() {
           feedMap[x][y] = feed;
           killMap[x][y] = kill;
           colorBalance[x][y] = 0.0;
+          // sample and store the logo color for this grid cell
+          cellColor[x][y] = color(r, g, b, a);
         }
       } else {
         // transparent/background area: give a small seed so it can react/invade
@@ -104,6 +114,8 @@ function seedFromLogo() {
         feedMap[x][y] = feed * 1.05;
         killMap[x][y] = max(0.01, kill * 0.95);
         colorBalance[x][y] = 0.0;
+        // use a pale background color for transparent areas
+        cellColor[x][y] = color(250, 250, 250);
       }
     }
   }
@@ -220,7 +232,15 @@ function render() {
       let cr = lerp(crC, crR, mix);
       let cg = lerp(cgC, cgR, mix);
       let cb = lerp(cbC, cbR, mix);
-      fill(cr, cg, cb);
+      // dynamic palette color (as p5 color)
+      let dynCol = color(cr, cg, cb);
+      // sampled logo color for this cell (fallback to pale if missing)
+      let baseCol = (cellColor && cellColor[x] && cellColor[x][y]) ? cellColor[x][y] : color(250,250,250);
+      // blend amount based on reaction value: more B -> lean towards dynamic color
+      let t = map(v, -1, 1, 0, 1);
+      t = constrain(t, 0, 1);
+      let finalCol = lerpColor(baseCol, dynCol, t);
+      fill(finalCol);
       rect(x * w, y * w, w, w);
     }
   }
