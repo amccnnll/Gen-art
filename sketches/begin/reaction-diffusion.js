@@ -189,13 +189,13 @@ function step() {
 
   // small random perturbations to keep the system lively
   // sprinkle a few random B concentrations each frame (only a tiny fraction)
-  // increased sprinkle frequency and magnitude to add more perturbation
-  let sprinkle = max(1, floor(cols * rows * 0.0012));
+  // small random perturbations to keep the system lively (original values)
+  let sprinkle = max(1, floor(cols * rows * 0.0006));
   for (let k = 0; k < sprinkle; k++) {
-    if (random() < 0.4) continue;
+    if (random() < 0.5) continue;
     let rx = floor(random(1, cols-1));
     let ry = floor(random(1, rows-1));
-    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.1, 0.6));
+    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
   }
 
   // diffuse colorBalance along with B using a weighted neighborhood average
