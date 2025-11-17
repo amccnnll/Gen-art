@@ -71,8 +71,14 @@ function seedFromLogo() {
   // We'll place the logo into the right half of the doubled-width grid.
   // Resize the logo to the original 'target' width (rows) and keep it aligned to the right.
   let img = logoImg.get();
-  // logo will occupy 'logoCols' columns on the right
+  // logo will nominally occupy 'logoCols' columns on the right
   let logoCols = floor(cols / 2);
+  // compute how many extra grid columns correspond to ~50 screen pixels
+  let extraRightPx = 50; // desired extra transparent padding in screen pixels
+  let extraRightCols = max(0, ceil(extraRightPx / max(1, scaleFactor)));
+  // ensure we don't overflow the grid
+  extraRightCols = min(extraRightCols, cols - logoCols);
+  // resize the image to the original logo width (without the extra transparent pad)
   img.resize(logoCols, rows);
   img.loadPixels();
   // compute avg alpha over the actual logo pixels only
@@ -85,8 +91,8 @@ function seedFromLogo() {
   killMap = make2D(cols, rows, kill);
   redMask = make2D(cols, rows, 0);
 
-  // compute the x offset where the logo begins (right-aligned)
-  let logoOffsetX = cols - logoCols;
+  // compute the x offset where the logo begins (right-aligned), leaving extra transparent padding on the right
+  let logoOffsetX = cols - (logoCols + extraRightCols);
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
       // if x is in the left (extended) area, treat as transparent/background
@@ -94,11 +100,16 @@ function seedFromLogo() {
         var r = 250, g = 250, b = 250, a = 0;
       } else {
         let ix = x - logoOffsetX;
-        let i = (y * img.width + ix) * 4;
-        var r = img.pixels[i];
-        var g = img.pixels[i + 1];
-        var b = img.pixels[i + 2];
-        var a = img.pixels[i + 3];
+        // if we're in the extra transparent padding area to the right of the logo, treat as transparent
+        if (ix >= img.width) {
+          var r = 250, g = 250, b = 250, a = 0;
+        } else {
+          let i = (y * img.width + ix) * 4;
+          var r = img.pixels[i];
+          var g = img.pixels[i + 1];
+          var b = img.pixels[i + 2];
+          var a = img.pixels[i + 3];
+        }
       }
       if (a >= alphaCut) {
         // detect red-ish pixels (preferential treatment)
