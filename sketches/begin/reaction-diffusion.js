@@ -66,7 +66,7 @@ function seedFromLogo() {
 }
 
 function draw() {
-  background(10);
+  background(250);
   if (running) {
     for (let i = 0; i < stepsPerFrame; i++) step();
   }
@@ -130,7 +130,7 @@ function render() {
 function drawOverlay() {
   push();
   noStroke();
-  fill(255, 220);
+  fill(20, 220); // dark text for pale background
   textSize(12);
   textAlign(LEFT, TOP);
   text(`RD — feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} dA:${nf(dA,1,2)} dB:${nf(dB,1,2)} speed:${stepsPerFrame}`, 8, 8);

@@ -114,7 +114,7 @@ function initFromImage() {
 }
 
 function draw() {
-  background(20);
+  background(250);
   if (running) {
     stepCA();
   }
@@ -153,7 +153,7 @@ function renderGrid() {
         let c = sampledImg.get(x, y);
         fill(c);
       } else {
-        fill(20);
+        fill(248);
       }
       rect(x * w, y * h, w + 1, h + 1);
     }
