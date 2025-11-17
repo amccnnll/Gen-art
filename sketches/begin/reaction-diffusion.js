@@ -25,7 +25,7 @@ function setup() {
   // pick a grid size based on the smallest canvas dimension, capped
   let target = constrain(floor(min(width, height) / 3), 80, 300);
   cols = rows = target;
-  scaleFactor = floor(min(width / cols, height / rows));
+  scaleFactor = max(1, floor(min(width / cols, height / rows)));
 
   initGrids();
   seedFromLogo();
@@ -109,8 +109,8 @@ function laplacian(arr, x, y) {
 }
 
 function render() {
-  loadPixels();
   let w = scaleFactor;
+  noStroke();
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
       let a = gridA[x][y];
@@ -118,13 +118,13 @@ function render() {
       // color mapping: use B concentration to modulate a palette
       let v = constrain((b - a), -1, 1);
       // palette mapping: map v to color
-      let c = color(map(v, -1, 1, 20, 255), map(v, -1, 1, 10, 100), map(v, -1, 1, 40, 200));
-      fill(c);
-      noStroke();
+      let cr = map(v, -1, 1, 20, 255);
+      let cg = map(v, -1, 1, 10, 100);
+      let cb = map(v, -1, 1, 40, 200);
+      fill(cr, cg, cb);
       rect(x * w, y * w, w, w);
     }
   }
-  updatePixels();
 }
 
 function drawOverlay() {
@@ -133,7 +133,14 @@ function drawOverlay() {
   fill(20, 220); // dark text for pale background
   textSize(12);
   textAlign(LEFT, TOP);
-  text(`RD — feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} dA:${nf(dA,1,2)} dB:${nf(dB,1,2)} speed:${stepsPerFrame}`, 8, 8);
+  // add some debug info: grid size and whether B has any nonzero values
+  let hasB = 0;
+  for (let x = 0; x < cols && !hasB; x++) {
+    for (let y = 0; y < rows; y++) {
+      if (gridB[x][y] > 0.001) { hasB = 1; break; }
+    }
+  }
+  text(`RD — ${cols}x${rows} feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} speed:${stepsPerFrame} B:${hasB ? 'yes' : 'no'}`, 8, 8);
   pop();
 }
 
@@ -171,6 +178,7 @@ function windowResized() {
   let target = constrain(floor(min(width, height) / 3), 80, 300);
   cols = rows = target;
   scaleFactor = floor(min(width / cols, height / rows));
+  scaleFactor = max(1, scaleFactor);
   initGrids();
   seedFromLogo();
 }
