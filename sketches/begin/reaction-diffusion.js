@@ -40,12 +40,16 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
   // pick a grid size based on the smallest canvas dimension, capped
+  // keep the original 'target' as the logo height/width and make the simulation
+  // twice as wide so we can place the logo on the right and leave the left half empty
   let target = constrain(floor(min(width, height) / 3), 80, 300);
-  cols = rows = target;
+  rows = target;
+  cols = target * 2; // double width
   scaleFactor = max(1, floor(min(width / cols, height / rows)));
 
-  // center the grid on the canvas
-  offsetX = floor((width - cols * scaleFactor) / 2);
+  // right-align the grid: offsetX positions the full grid so its right edge matches the canvas
+  offsetX = floor(max(0, width - cols * scaleFactor));
+  // vertically center the grid
   offsetY = floor((height - rows * scaleFactor) / 2);
 
   applyPreset(0);
@@ -64,26 +68,38 @@ function initGrids() {
 }
 
 function seedFromLogo() {
-  // resize logo to grid and use alpha to seed B concentration
+  // We'll place the logo into the right half of the doubled-width grid.
+  // Resize the logo to the original 'target' width (rows) and keep it aligned to the right.
   let img = logoImg.get();
-  img.resize(cols, rows);
+  // logo will occupy 'logoCols' columns on the right
+  let logoCols = floor(cols / 2);
+  img.resize(logoCols, rows);
   img.loadPixels();
+  // compute avg alpha over the actual logo pixels only
   let alphaSum = 0;
   for (let i = 3; i < img.pixels.length; i += 4) alphaSum += img.pixels[i];
-  let avgAlpha = alphaSum / (cols * rows);
+  let avgAlpha = alphaSum / (logoCols * rows);
   let alphaCut = max(8, floor(avgAlpha * 0.5));
   // initialize per-cell param maps and mask
   feedMap = make2D(cols, rows, feed);
   killMap = make2D(cols, rows, kill);
   redMask = make2D(cols, rows, 0);
 
+  // compute the x offset where the logo begins (right-aligned)
+  let logoOffsetX = cols - logoCols;
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
-      let i = (y * img.width + x) * 4;
-      let r = img.pixels[i];
-      let g = img.pixels[i + 1];
-      let b = img.pixels[i + 2];
-      let a = img.pixels[i + 3];
+      // if x is in the left (extended) area, treat as transparent/background
+      if (x < logoOffsetX) {
+        var r = 250, g = 250, b = 250, a = 0;
+      } else {
+        let ix = x - logoOffsetX;
+        let i = (y * img.width + ix) * 4;
+        var r = img.pixels[i];
+        var g = img.pixels[i + 1];
+        var b = img.pixels[i + 2];
+        var a = img.pixels[i + 3];
+      }
       if (a >= alphaCut) {
         // detect red-ish pixels (preferential treatment)
         let isRed = (r > 130 && r > g * 1.2 && r > b * 1.2) || (r > 160 && g < 100);
@@ -104,7 +120,7 @@ function seedFromLogo() {
           colorBalance[x][y] = 0.0;
         }
       } else {
-        // transparent/background area: give a small seed so it can react/invade
+        // transparent/background area (including left extension): give a small seed so it can react/invade
         gridB[x][y] = random(0.02, 0.12);
         gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
         // make background slightly more receptive: slightly higher feed, slightly lower kill
@@ -316,11 +332,12 @@ function mouseDragged() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   let target = constrain(floor(min(width, height) / 3), 80, 300);
-  cols = rows = target;
+  rows = target;
+  cols = target * 2;
   scaleFactor = floor(min(width / cols, height / rows));
   scaleFactor = max(1, scaleFactor);
-  // recompute centering offsets
-  offsetX = floor((width - cols * scaleFactor) / 2);
+  // right-align the grid
+  offsetX = floor(max(0, width - cols * scaleFactor));
   offsetY = floor((height - rows * scaleFactor) / 2);
   initGrids();
   seedFromLogo();
