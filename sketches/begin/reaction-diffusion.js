@@ -14,6 +14,15 @@ let dB = 0.5;
 let feed = 0.036;
 let kill = 0.064;
 let dt = 1.0;
+// presets to try for different behavior (1..5)
+let presets = [
+  {name: 'calm', dA:1.0, dB:0.5, feed:0.036, kill:0.064},
+  {name: 'spiral', dA:1.0, dB:0.5, feed:0.018, kill:0.052},
+  {name: 'worms', dA:1.0, dB:0.5, feed:0.025, kill:0.060},
+  {name: 'chaotic', dA:1.0, dB:0.6, feed:0.030, kill:0.055},
+  {name: 'explosive', dA:0.9, dB:0.8, feed:0.020, kill:0.046}
+];
+let currentPreset = 0;
 
 function preload() {
   logoImg = loadImage('../sketches/begin/begin-logo.png');
@@ -27,6 +36,7 @@ function setup() {
   cols = rows = target;
   scaleFactor = max(1, floor(min(width / cols, height / rows)));
 
+  applyPreset(0);
   initGrids();
   seedFromLogo();
   frameRate(30);
@@ -91,6 +101,16 @@ function step() {
   // swap grids
   let tA = gridA; gridA = nextA; nextA = tA;
   let tB = gridB; gridB = nextB; nextB = tB;
+
+  // small random perturbations to keep the system lively
+  // sprinkle a few random B concentrations each frame (only a tiny fraction)
+  let sprinkle = max(1, floor(cols * rows * 0.0006));
+  for (let k = 0; k < sprinkle; k++) {
+    if (random() < 0.5) continue;
+    let rx = floor(random(1, cols-1));
+    let ry = floor(random(1, rows-1));
+    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
+  }
 }
 
 function laplacian(arr, x, y) {
@@ -133,15 +153,24 @@ function drawOverlay() {
   fill(20, 220); // dark text for pale background
   textSize(12);
   textAlign(LEFT, TOP);
-  // add some debug info: grid size and whether B has any nonzero values
+  // add some debug info: grid size, preset and whether B has any nonzero values
   let hasB = 0;
   for (let x = 0; x < cols && !hasB; x++) {
     for (let y = 0; y < rows; y++) {
       if (gridB[x][y] > 0.001) { hasB = 1; break; }
     }
   }
-  text(`RD — ${cols}x${rows} feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} speed:${stepsPerFrame} B:${hasB ? 'yes' : 'no'}`, 8, 8);
+  text(`RD (${presets[currentPreset].name}) — ${cols}x${rows} feed:${nf(feed,1,4)} kill:${nf(kill,1,4)} speed:${stepsPerFrame} B:${hasB ? 'yes' : 'no'}`, 8, 8);
   pop();
+}
+
+function applyPreset(i) {
+  i = constrain(i, 0, presets.length - 1);
+  currentPreset = i;
+  dA = presets[i].dA;
+  dB = presets[i].dB;
+  feed = presets[i].feed;
+  kill = presets[i].kill;
 }
 
 function make2D(c, r, v) {
@@ -170,6 +199,26 @@ function keyPressed() {
     stepsPerFrame = min(10, stepsPerFrame + 1);
   } else if (key === '-') {
     stepsPerFrame = max(1, stepsPerFrame - 1);
+  } else if (key >= '1' && key <= '5') {
+    // apply a preset (1-5)
+    applyPreset(int(key) - 1);
+  } else if (key === 'i') {
+    // force a random injection
+    for (let k = 0; k < 10; k++) {
+      let rx = floor(random(2, cols-2));
+      let ry = floor(random(2, rows-2));
+      gridB[rx][ry] = 1;
+    }
+  }
+}
+
+function mouseDragged() {
+  // inject B at mouse position to perturb the field
+  let gx = floor(mouseX / scaleFactor);
+  let gy = floor(mouseY / scaleFactor);
+  if (gx > 0 && gy > 0 && gx < cols-1 && gy < rows-1) {
+    gridB[gx][gy] = 1.0;
+    gridA[gx][gy] = 0.0;
   }
 }
 
