@@ -97,10 +97,12 @@ function seedFromLogo() {
           colorBalance[x][y] = 0.0;
         }
       } else {
-        gridB[x][y] = 0.0;
-        gridA[x][y] = 1.0;
-        feedMap[x][y] = feed;
-        killMap[x][y] = kill;
+        // transparent/background area: give a small seed so it can react/invade
+        gridB[x][y] = random(0.02, 0.12);
+        gridA[x][y] = 1.0 - gridB[x][y] * 0.5;
+        // make background slightly more receptive: slightly higher feed, slightly lower kill
+        feedMap[x][y] = feed * 1.05;
+        killMap[x][y] = max(0.01, kill * 0.95);
         colorBalance[x][y] = 0.0;
       }
     }
