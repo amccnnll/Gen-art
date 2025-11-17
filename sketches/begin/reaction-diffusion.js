@@ -17,19 +17,16 @@ let feedMap, killMap, redMask;
 let colorBalance, nextColorBalance;
 // masks and UI state
 let logoMask; // true where logo alpha >= cutoff
-// sliders
-let s_dA, s_dB, s_feed, s_kill, s_dt;
-let lastSliderVals = {};
 
 // default Gray-Scott params (good starting point)
-let dA = 0.95;
-let dB = 0.8;
-let feed = 0.025;
-let kill = 0.049;
+let dA = 1.0;
+let dB = 0.5;
+let feed = 0.036;
+let kill = 0.064;
 let dt = 1.0;
 // presets to try for different behavior (1..5)
 let presets = [
-  {name: 'calm', dA:0.95, dB:0.8, feed:0.025, kill:0.049},
+  {name: 'calm', dA:1.0, dB:0.5, feed:0.036, kill:0.064},
   {name: 'spiral', dA:1.0, dB:0.5, feed:0.018, kill:0.052},
   {name: 'worms', dA:1.0, dB:0.5, feed:0.025, kill:0.060},
   {name: 'chaotic', dA:1.0, dB:0.6, feed:0.030, kill:0.055},
@@ -60,21 +57,6 @@ function setup() {
   applyPreset(0);
   initGrids();
   seedFromLogo();
-  // create UI sliders (top-left)
-  s_dA = createSlider(0.5, 1.5, dA, 0.01);
-  s_dA.style('width', '140px');
-  s_dB = createSlider(0.1, 1.5, dB, 0.01);
-  s_dB.style('width', '140px');
-  s_feed = createSlider(0.0, 0.06, feed, 0.001);
-  s_feed.style('width', '140px');
-  s_kill = createSlider(0.0, 0.12, kill, 0.001);
-  s_kill.style('width', '140px');
-  s_dt = createSlider(0.2, 2.0, dt, 0.05);
-  s_dt.style('width', '140px');
-  // position sliders (top-right) and ensure they update on resize
-  updateSliderPositions();
-  // record initial slider vals
-  lastSliderVals = {dA: dA, dB: dB, feed: feed, kill: kill, dt: dt};
   frameRate(30);
 }
 
@@ -166,25 +148,7 @@ function seedFromLogo() {
   }
 }
 
-function updateParamMapsFromSliders() {
-  // apply current global feed/kill to feedMap/killMap while preserving redMask logic
-  for (let x = 0; x < cols; x++) {
-    for (let y = 0; y < rows; y++) {
-      if (logoMask[x][y]) {
-        if (redMask[x][y]) {
-          feedMap[x][y] = max(0.005, feed * 0.8);
-          killMap[x][y] = max(0.02, kill * 0.9);
-        } else {
-          feedMap[x][y] = feed;
-          killMap[x][y] = kill;
-        }
-      } else {
-        feedMap[x][y] = feed * 1.05;
-        killMap[x][y] = max(0.01, kill * 0.95);
-      }
-    }
-  }
-}
+// (no-op) parameter-map updates are handled during seeding; sliders removed
 
 function draw() {
   background(250);
@@ -193,22 +157,7 @@ function draw() {
   }
   render();
   drawOverlay();
-
-  // read sliders and update params if changed
-  if (s_dA) {
-    let ndA = s_dA.value();
-    let ndB = s_dB.value();
-    let nfeed = s_feed.value();
-    let nkill = s_kill.value();
-    let ndt = s_dt.value();
-    let changed = false;
-    if (abs(ndA - lastSliderVals.dA) > 0.0001) { dA = ndA; changed = true; lastSliderVals.dA = ndA; }
-    if (abs(ndB - lastSliderVals.dB) > 0.0001) { dB = ndB; changed = true; lastSliderVals.dB = ndB; }
-    if (abs(nfeed - lastSliderVals.feed) > 0.0001) { feed = nfeed; changed = true; lastSliderVals.feed = nfeed; }
-    if (abs(nkill - lastSliderVals.kill) > 0.0001) { kill = nkill; changed = true; lastSliderVals.kill = nkill; }
-    if (abs(ndt - lastSliderVals.dt) > 0.0001) { dt = ndt; changed = true; lastSliderVals.dt = ndt; }
-    if (changed) updateParamMapsFromSliders();
-  }
+  
 }
 
 function step() {
@@ -418,19 +367,7 @@ function windowResized() {
   offsetY = floor((height - rows * scaleFactor) / 2);
   initGrids();
   seedFromLogo();
-  // reposition sliders if present
-  updateSliderPositions();
+  // sliders removed; nothing to reposition
 }
 
-function updateSliderPositions() {
-  // place sliders in the top-right corner with a small margin
-  if (!s_dA) return;
-  let margin = 10;
-  let w = 140;
-  let x = max(margin, width - w - 16); // 16px extra for visibility
-  s_dA.position(x, 10 + margin);
-  s_dB.position(x, 10 + margin + 26);
-  s_feed.position(x, 10 + margin + 52);
-  s_kill.position(x, 10 + margin + 78);
-  s_dt.position(x, 10 + margin + 104);
-}
+// sliders removed
