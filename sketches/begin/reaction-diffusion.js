@@ -195,8 +195,14 @@ function step() {
   let tA = gridA; gridA = nextA; nextA = tA;
   let tB = gridB; gridB = nextB; nextB = tB;
 
-  // perturbations disabled (user requested zero perturbation)
-  // no sprinkling performed
+  // small random perturbations to keep the system lively (original values)
+  let sprinkle = max(1, floor(cols * rows * 0.0006));
+  for (let k = 0; k < sprinkle; k++) {
+    if (random() < 0.5) continue;
+    let rx = floor(random(1, cols-1));
+    let ry = floor(random(1, rows-1));
+    gridB[rx][ry] = min(1, gridB[rx][ry] + random(0.05, 0.4));
+  }
 
   // diffuse colorBalance along with B using a weighted neighborhood average
   for (let x = 1; x < cols - 1; x++) {
