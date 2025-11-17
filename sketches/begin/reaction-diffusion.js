@@ -17,6 +17,9 @@ let feedMap, killMap, redMask;
 let colorBalance, nextColorBalance;
 // masks and UI state
 let logoMask; // true where logo alpha >= cutoff
+// capture helpers
+let capturer = null;
+let recording = false;
 
 // default Gray-Scott params (good starting point)
 let dA = 1.0;
@@ -58,6 +61,15 @@ function setup() {
   initGrids();
   seedFromLogo();
   frameRate(30);
+  // prepare CCapture (will be available since runner includes CCapture script)
+  if (window.CCapture) {
+    try {
+      capturer = new CCapture({ format: 'webm', framerate: 30, verbose: false });
+    } catch (e) {
+      capturer = null;
+      console.warn('CCapture not available:', e);
+    }
+  }
 }
 
 function initGrids() {
@@ -157,7 +169,12 @@ function draw() {
   }
   render();
   drawOverlay();
-  
+  // capture current canvas frame if recording
+  if (recording && capturer) {
+    // pass the canvas element to CCapture
+    let cnv = document.querySelector('canvas');
+    if (cnv) capturer.capture(cnv);
+  }
 }
 
 function step() {
@@ -347,6 +364,30 @@ function keyPressed() {
       let rx = floor(random(2, cols-2));
       let ry = floor(random(2, rows-2));
       gridB[rx][ry] = 1;
+    }
+  } else if (key === 'R') {
+    // toggle recording with CCapture (capital R)
+    if (!capturer) {
+      console.warn('Capturer not available in this environment');
+      return;
+    }
+    if (!recording) {
+      try {
+        capturer.start();
+        recording = true;
+        console.log('Recording started (press R to stop)');
+      } catch (e) {
+        console.error('Failed to start capturer', e);
+      }
+    } else {
+      try {
+        recording = false;
+        capturer.stop();
+        capturer.save();
+        console.log('Recording stopped and saved');
+      } catch (e) {
+        console.error('Failed to stop/save capturer', e);
+      }
     }
   }
 }
