@@ -8,6 +8,9 @@ let scaleFactor = 1; // how many screen pixels per grid cell
 let running = true;
 let stepsPerFrame = 1;
 
+// offsets to center the (square) simulation grid on a possibly widescreen canvas
+let offsetX = 0, offsetY = 0;
+
 // per-cell params / masks
 let feedMap, killMap, redMask;
 // color balance: 0 = default (cool), 1 = red. This value will diffuse along with B.
@@ -40,6 +43,10 @@ function setup() {
   let target = constrain(floor(min(width, height) / 3), 80, 300);
   cols = rows = target;
   scaleFactor = max(1, floor(min(width / cols, height / rows)));
+
+  // center the grid on the canvas
+  offsetX = floor((width - cols * scaleFactor) / 2);
+  offsetY = floor((height - rows * scaleFactor) / 2);
 
   applyPreset(0);
   initGrids();
@@ -221,7 +228,7 @@ function render() {
       let cg = lerp(cgC, cgR, mix);
       let cb = lerp(cbC, cbR, mix);
       fill(cr, cg, cb);
-      rect(x * w, y * w, w, w);
+      rect(offsetX + x * w, offsetY + y * w, w, w);
     }
   }
 }
@@ -298,8 +305,8 @@ function keyPressed() {
 
 function mouseDragged() {
   // inject B at mouse position to perturb the field
-  let gx = floor(mouseX / scaleFactor);
-  let gy = floor(mouseY / scaleFactor);
+  let gx = floor((mouseX - offsetX) / scaleFactor);
+  let gy = floor((mouseY - offsetY) / scaleFactor);
   if (gx > 0 && gy > 0 && gx < cols-1 && gy < rows-1) {
     gridB[gx][gy] = 1.0;
     gridA[gx][gy] = 0.0;
@@ -312,6 +319,9 @@ function windowResized() {
   cols = rows = target;
   scaleFactor = floor(min(width / cols, height / rows));
   scaleFactor = max(1, scaleFactor);
+  // recompute centering offsets
+  offsetX = floor((width - cols * scaleFactor) / 2);
+  offsetY = floor((height - rows * scaleFactor) / 2);
   initGrids();
   seedFromLogo();
 }
