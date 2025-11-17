@@ -5,7 +5,7 @@ let logoImg;
 let gridA, gridB, nextA, nextB;
 let cols = 200, rows = 200; // compute based on canvas size
 let scaleFactor = 1; // how many screen pixels per grid cell
-let running = true;
+let running = false; // start paused — begin only when user requests
 let stepsPerFrame = 1;
 
 // offsets to center the (square) simulation grid on a possibly widescreen canvas
@@ -343,6 +343,11 @@ function mousePressed() {
 }
 
 function keyPressed() {
+  // space toggles run/pause
+  if (key === ' ') {
+    running = !running;
+    return;
+  }
   if (key === 's') {
     step();
     redraw();
@@ -372,6 +377,8 @@ function keyPressed() {
       return;
     }
     if (!recording) {
+      // ensure animation is running while recording
+      if (!running) running = true;
       try {
         capturer.start();
         recording = true;
